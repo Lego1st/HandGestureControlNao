@@ -1,7 +1,7 @@
 # HandGestureControlNao
 
 ### How to run
-./runme.sh
+python  main.py
 
 ### Requirement
-python packages: mxnet, Theano, opencv
+python packages: Tensorflow 1.4.0, opencv
