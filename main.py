@@ -2,11 +2,12 @@ import cv2
 import numpy as np
 import os
 import time
-
+from naoqi import ALProxy
 from utils import GestureModel
+from act import act, NAO_can_do
 
 minValue = 70
-
+arr = ''
 x0 = 200
 y0 = 150
 height = 200
@@ -39,8 +40,39 @@ banner =  '''\nWhat would you like to do ?
 myNN = None
 
 #%%
-def controlNAO(lastgesture):
-    print(lastgesture)
+def controlNAO(key, tts, proxy, postureProxy):
+    print(key)
+
+    global arr
+    if (key == 'PUNCH'):
+        key = '0'
+        arr = '0'
+        NAO_can_do.punch(tts, proxy, postureProxy)
+    elif (len(arr) == 0):
+        pass
+    elif (key == 'UP'):
+        key = '1'
+        arr += key
+        NAO_can_do.thumb_up(tts, proxy, postureProxy)
+    elif (key == 'HI'):
+        key = '2'
+        arr += key
+        NAO_can_do.hello(tts, proxy, postureProxy)
+    elif (key == 'CALL'):
+        key = '3'
+        arr += key
+        NAO_can_do.call_me(tts, proxy, postureProxy)
+    elif (key == 'COMB'):
+        key = '5'
+        arr += key
+        NAO_can_do.letter_c(tts, proxy, postureProxy)
+    elif (key == 'STOP'):
+        key = '4'
+        NAO_can_do.stop(tts, proxy, postureProxy)
+        act(arr, tts, proxy, postureProxy)
+        arr = ''
+    else:
+        pass
 
 def saveROIImg(img):
     global counter, gestname, path, saveImg
@@ -68,7 +100,7 @@ hasFace = False
 framecounter = 0
 detectCheckpoint = 30
 
-def skinMask(frame, x0, y0, width, height ):
+def skinMask(frame, x0, y0, width, height, tts, proxy, postureProxy):
     global guessGesture, visualize, mod, lastgesture, saveImg, y, b, r, hasFace
 
     cv2.rectangle(frame, (x0,y0),(x0+width,y0+height),(0,255,0),1)
@@ -102,14 +134,14 @@ def skinMask(frame, x0, y0, width, height ):
         retgesture = myNN.predict(res)
         if lastgesture != retgesture :
             lastgesture = retgesture
-            controlNAO(lastgesture)
+            controlNAO(lastgesture, tts, proxy, postureProxy)
             time.sleep(0.01)
     
     
     return res
 
 #%%
-def binaryMask(frame, x0, y0, width, height ):
+def binaryMask(frame, x0, y0, width, height, tts, proxy, postureProxy):
     global guessGesture, visualize, mod, lastgesture, saveImg
     global framecounter
     framecounter = (framecounter + 1) % 50
@@ -130,7 +162,7 @@ def binaryMask(frame, x0, y0, width, height ):
         retgesture = myNN.predict(res)
         if lastgesture != retgesture :
             lastgesture = retgesture
-            controlNAO(lastgesture)
+            controlNAO(lastgesture, tts, proxy, postureProxy)
             # print myNN.output[lastgesture]
             time.sleep(0.01)
 
@@ -159,6 +191,28 @@ def Main():
     ret = cap.set(3,640)
     ret = cap.set(4,480)
     
+    # Initialize NAO
+    robotIP = "192.168.1.73"
+    # Init proxies.
+    try:
+        tts = ALProxy("ALTextToSpeech", robotIP, 9559)
+    except Exception, e:
+        print('Could not create proxy to ALTextToSpeech')
+        print('Error was: ' + e)
+
+    try:
+        proxy = ALProxy("ALMotion", robotIP, 9559)
+    except Exception, e:
+        print "Could not create proxy to ALMotion"
+        print "Error was: ", e
+
+    try:
+        postureProxy = ALProxy("ALRobotPosture", robotIP, 9559)
+    except Exception, e:
+        print "Could not create proxy to ALRobotPosture"
+        print "Error was: ", e
+    # -----------------------------
+
     while(True):
         ret, frame = cap.read()
         max_area = 0
@@ -166,7 +220,7 @@ def Main():
         frame = cv2.flip(frame, 3)
         
         if ret == True:
-            roi = binaryMask(frame, x0, y0, width, height)
+            roi = binaryMask(frame, x0, y0, width, height, tts, proxy, postureProxy)
 
         cv2.putText(frame,'Options:',(fx,fy), font, 0.7,(0,255,0),2,1)
         cv2.putText(frame,'b - Toggle Binary/SkinMask',(fx,fy + fh), font, size,(0,255,0),1,1)
